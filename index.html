@@ -65,6 +65,12 @@ button:focus-visible{outline:3px solid var(--taxi);outline-offset:3px}
 #pad .l{left:16px;border-right:14px solid var(--paper);border-left:0}
 #pad .r{right:16px;border-left:14px solid var(--paper);border-right:0}
 #knob{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#FFE27A,var(--taxi) 55%,var(--taxi-deep));box-shadow:0 4px 0 rgba(0,0,0,.3),inset 0 -4px 0 rgba(0,0,0,.12)}
+#steerBtns{position:absolute;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:14px}
+.sbtn{width:96px;height:96px;border-radius:50%;background:rgba(20,33,61,.55);border:3px solid rgba(255,253,246,.45);display:grid;place-items:center;touch-action:none;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.sbtn svg{width:46px;height:46px;fill:var(--taxi)}
+.sbtn.on{transform:translateY(3px);background:rgba(242,194,48,.35)}
+#installBtn{align-self:flex-start;padding:9px 16px;border-radius:12px;background:rgba(255,253,246,.14);font-family:var(--display);font-size:16px}
+@media (max-height:420px){.sbtn{width:80px;height:80px}}
 #knob::after{content:"";position:absolute;inset:20px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#FFE995,var(--taxi) 70%);box-shadow:0 2px 0 var(--taxi-deep)}
 
 .pedals{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:11px;align-items:flex-end;pointer-events:none}
@@ -186,6 +192,7 @@ h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(34px,min(
       <div class="timer" id="jobTimer" hidden></div>
     </div>
     <div id="steerZone" aria-label="Steering: drag left or right"><div id="pad"><i class="arr l"></i><i class="arr r"></i><div id="knob"></div></div></div>
+    <div id="steerBtns" hidden><button class="sbtn" id="leftBtn" aria-label="Steer left"><svg viewBox="0 0 24 24"><path d="M15.5 4.5L7 12l8.5 7.5z"/></svg></button><button class="sbtn" id="rightBtn" aria-label="Steer right"><svg viewBox="0 0 24 24"><path d="M8.5 4.5L17 12l-8.5 7.5z"/></svg></button></div>
     <div id="gear" hidden>REVERSE</div>
     <div class="radio-tag" id="radioTag" hidden></div>
     <div class="pedals">
@@ -211,6 +218,7 @@ h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(34px,min(
         <dt>Radio</dt><dd>switch between Dance, Jazz and Pop</dd>
       </dl>
       <button class="brick" id="play" disabled>Building town…</button>
+      <button id="installBtn" hidden>Add Brickton to the home screen</button>
     </div>
   </div>
 
@@ -1281,7 +1289,7 @@ function updateGearbox(dt){
 /* ---------- the drive ---------- */
 function updateCar(dt){
   const S=V.spec,steerIn=clamp(input.steer+input.keySteer,-1,1);
-  car.steer=damp(car.steer,steerIn,10,dt);
+  car.steer=damp(car.steer,steerIn,16,dt);
   if(!car.air){
     if(input.brake){
       if(car.speed>.4)car.speed=Math.max(0,car.speed-BRK*dt);
@@ -1291,7 +1299,7 @@ function updateCar(dt){
     if(!input.throttle&&!input.brake)car.speed-=Math.sign(car.speed)*Math.min(Math.abs(car.speed),COAST*dt);
   }
   const sp=Math.abs(car.speed);
-  const turn=(S.turn-.9*clamp(sp/S.maxF,0,1))*clamp(sp/7,0,1)*(car.air?.25:1);
+  const turn=(S.turn-.9*clamp(sp/S.maxF,0,1))*clamp(sp/4,0,1)*(car.air?.25:1);
   car.h-=car.steer*turn*Math.sign(car.speed)*dt;
   const fx=Math.sin(car.h),fz=Math.cos(car.h);
   const grip=car.air?.5:9;
@@ -2074,6 +2082,9 @@ function renderGarage(){
   }else{
     const opt=(group,val,label,cur)=>`<button class="opt" data-set="${group}" data-val="${val}" aria-pressed="${cur===val}">${label}</button>`;
     h+='<div class="sec">Graphics</div><div class="row">'+opt('detail','high','High detail',DETAIL)+opt('detail','low','Low detail',DETAIL)+'</div><p class="note">Low detail runs more smoothly on older tablets. Changing it restarts the game; your progress is kept.</p>';
+    h+='<div class="sec">Steering</div><div class="row">'+opt('steer','stick','Drag stick',save.steer||'stick')+opt('steer','buttons','Left and right buttons',save.steer||'stick')+'</div><p class="note">Buttons can be easier for small thumbs.</p>';
+    h+='<div class="sec">Home screen</div>'+(installEvt?'<div class="row"><button class="opt" data-set="install">Add Brickton to the home screen</button></div>':'')+'<p class="note">'+(matchMedia('(display-mode: standalone),(display-mode: fullscreen)').matches?'Brickton is running as a home-screen app.':'In Silk, open the browser menu and choose Add to Home Screen, or add a bookmark and send it to the home screen.')+'</p>';
+    h+=`<div class="sec">Speed check</div><p class="note">This device is drawing about <b>${Math.round(fpsAvg)}</b> frames a second at ${DETAIL==='low'?'Low':'High'} detail. Over 25 feels smooth.</p>`;
     h+='<div class="sec">Time of day</div><div class="row">'+opt('time','auto','Day and night',save.time)+opt('time','day','Always day',save.time)+opt('time','night','Always night',save.time)+'</div>';
     h+='<div class="sec">Sound</div><div class="row">'+opt('sound','on','Sound on',save.sound?'on':'off')+opt('sound','off','Sound off',save.sound?'on':'off')+'</div>';
     h+=`<div class="sec">Progress</div><div class="row"><button class="opt danger" data-set="reset">${resetArmed?'Tap again to erase everything':'Start again from zero'}</button></div><p class="note">Progress is saved on this device.</p>`;
@@ -2097,6 +2108,8 @@ $('garage').addEventListener('click',e=>{
     save.driver.hat=o.id;refreshVehicle();sfx.click();persist();updateWallet();renderGarage();return;}
   if(b.dataset.dk){save.driver[b.dataset.dk]=b.dataset.dv;refreshVehicle();sfx.click();persist();renderGarage();return;}
   if(b.dataset.set==='detail'){if(b.dataset.val!==DETAIL){store.set('detail',b.dataset.val);persist();location.reload();}return;}
+  if(b.dataset.set==='steer'){save.steer=b.dataset.val;applySteerMode();persist();sfx.click();renderGarage();return;}
+  if(b.dataset.set==='install'){doInstall();return;}
   if(b.dataset.set==='time'){save.time=b.dataset.val;persist();sfx.click();renderGarage();return;}
   if(b.dataset.set==='sound'){const want=b.dataset.val==='on';if(want!==sfx.on)sfx.toggle();save.sound=want;persist();renderGarage();return;}
   if(b.dataset.set==='reset'){if(!resetArmed){resetArmed=true;renderGarage();return;}store.clear();location.reload();}
@@ -2129,10 +2142,23 @@ hold($('radioBtn'),nextStation,()=>{});
 {
   const zone=$('steerZone'),pad=$('pad'),knob=$('knob');let id=null,sx=0;
   zone.addEventListener('pointerdown',e=>{e.preventDefault();sfx.init();if(id!==null)return;id=e.pointerId;try{zone.setPointerCapture(id);}catch(_){}const r=zone.getBoundingClientRect();sx=e.clientX;pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';});
-  zone.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;const d=clamp((e.clientX-sx)/56,-1,1);input.steer=d;knob.style.transform=`translateX(${d*56}px)`;});
+  /* small dead zone, full lock after a short drag */
+  zone.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;const dx=e.clientX-sx,m=Math.max(0,Math.abs(dx)-3);const d=Math.sign(dx)*Math.min(1,m/38);input.steer=d;knob.style.transform=`translateX(${d*56}px)`;});
   const end=e=>{if(e.pointerId!==id)return;id=null;input.steer=0;knob.style.transform='';pad.style.left='';pad.style.top='';};
   zone.addEventListener('pointerup',end);zone.addEventListener('pointercancel',end);zone.addEventListener('lostpointercapture',end);
 }
+/* optional big left/right buttons instead of the drag stick */
+{
+  let l=0,r=0;const sync=()=>{input.steer=r-l;};
+  hold($('leftBtn'),()=>{l=1;sync();},()=>{l=0;sync();});
+  hold($('rightBtn'),()=>{r=1;sync();},()=>{r=0;sync();});
+}
+function applySteerMode(){const b=save.steer==='buttons';$('steerBtns').hidden=!b;$('steerZone').hidden=b;input.steer=0;}
+/* install as an app where the browser offers it */
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('installBtn').hidden=false;});
+async function doInstall(){if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(_){}installEvt=null;$('installBtn').hidden=true;if(garageOpen)renderGarage();}
+$('installBtn').addEventListener('click',doInstall);
 const keys={};
 addEventListener('keydown',e=>{
   if(e.repeat)return;keys[e.code]=true;sfx.init();
@@ -2185,25 +2211,29 @@ function watchQuality(raw){
 const clock=new T.Clock();let elapsed=0,saveClock=0;
 function frame(){
   requestAnimationFrame(frame);
-  const raw=clock.getDelta(),dt=Math.min(raw,1/24);frameDt=dt;elapsed+=dt;
+  /* slower tablets get several small physics steps per frame so the game never runs in slow motion */
+  const raw=clock.getDelta(),total=Math.min(raw,.2),steps=Math.max(1,Math.ceil(total/(1/30)-.01)),dt=total/steps;
+  fpsAvg=lerp(fpsAvg,1/Math.max(raw,1e-3),.05);
   const paused=garageOpen||bookOpen;
-  updateSky(dt);
+  updateSky(total);
   if(!attract&&!paused){
-    updateCar(dt);updateGearbox(dt);updateMud(dt);updateGolds(dt,elapsed);updateCones(dt);
-    if(job)job.update(dt,elapsed);
-    updateCrossings(dt,elapsed);
-  }else{sfx.engine(.1,0,attract?0:.03,V.type);updateGolds(0,elapsed);}
-  updateFolk(dt,elapsed);updateTrain(dt);updateAmbient(dt,elapsed);updateBeacon(elapsed);
-  updateCamera(dt,elapsed);
-  stepPool(debris,dt,30);stepPool(puffs,dt,-2,'grow');stepPool(sparks,dt,-1,'face');
+    for(let k=0;k<steps;k++){frameDt=dt;elapsed+=dt;
+      updateCar(dt);updateGearbox(dt);updateMud(dt);updateGolds(dt,elapsed);updateCones(dt);
+      if(job)job.update(dt,elapsed);
+      updateCrossings(dt,elapsed);}
+  }else{elapsed+=total;frameDt=total;sfx.engine(.1,0,attract?0:.03,V.type);updateGolds(0,elapsed);}
+  const dtv=total;
+  updateFolk(dtv,elapsed);updateTrain(dtv);updateAmbient(dtv,elapsed);updateBeacon(elapsed);
+  updateCamera(dtv,elapsed);
+  stepPool(debris,dtv,30);stepPool(puffs,dtv,-2,'grow');stepPool(sparks,dtv,-1,'face');
   postMat.uniforms.uTime.value=elapsed%10;
   renderer.setRenderTarget(usePost&&rt?rt:null);renderer.render(scene,camera);
   stats.calls=renderer.info.render.calls;stats.tris=renderer.info.render.triangles;stats.ms=Math.round(raw*1000);
   if(usePost&&rt){postMat.uniforms.tDiffuse.value=rt.texture;renderer.setRenderTarget(null);renderer.render(postScene,postCam);}
   watchQuality(raw);
-  saveClock+=dt;if(saveClock>10){saveClock=0;persist();}
+  saveClock+=dtv;if(saveClock>10){saveClock=0;persist();}
 }
-const stats={calls:0,tris:0};
+const stats={calls:0,tris:0};let fpsAvg=30;
 
 /* ---------- boot: build the town after the start card has painted ---------- */
 function boot(){
@@ -2217,7 +2247,7 @@ function boot(){
   if(!save.owned.vehicles.includes(save.vehicle))save.vehicle='cab';
   spawnVehicle(save.vehicle);
   car.y=groundAt(car.x,car.z);V.group.position.set(car.x,car.y,car.z);V.group.rotation.y=car.h;
-  updateWallet();resize();
+  updateWallet();resize();applySteerMode();
   buildMs=Math.round(performance.now()-t0);
   $('play').disabled=false;$('play').textContent=save.studs||save.counts.fares?'Keep driving':'Start driving';
   frame();
