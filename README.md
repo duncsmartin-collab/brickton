@@ -1,3 +1,3 @@
-# Brickton Cabs
+# Brickton Cabs (moved)
 
-A brick-built toy town driving game for phones and tablets. Play it at https://duncsmartin-collab.github.io/brickton/
+The game now lives in the Game Box: https://duncsmartin-collab.github.io/games/brickton/ — source in the games repository under `source/brickton/`.
