@@ -59,7 +59,17 @@ button:focus-visible{outline:3px solid var(--taxi);outline-offset:3px}
 .meter i{display:block;height:100%;width:100%;background:var(--good);border-radius:4px;transition:width .2s,background .2s}
 .timer{font-family:var(--display);font-size:20px;color:var(--gold);margin-left:4px;font-variant-numeric:tabular-nums}
 
-#steerZone{position:absolute;left:0;bottom:0;width:44%;height:72%}
+#steerZone{position:absolute;left:0;bottom:0;width:46%;top:calc(96px + env(safe-area-inset-top,0px))}
+#editBar{position:absolute;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;background:var(--ink-solid);border-radius:14px;padding:8px 8px 8px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:calc(100% - 24px)}
+#editBar span{font-size:13px;line-height:1.3;color:var(--paper)}
+#editBar button{flex:none;padding:9px 14px;border-radius:10px;font-family:var(--display);font-size:15px;background:rgba(255,255,255,.12)}
+#editBar #editDone{background:var(--taxi);color:var(--ink)}
+.editing #pad,.editing #steerBtns,.editing .pedals{outline:3px dashed var(--taxi);outline-offset:8px;border-radius:20px}
+.editing #pad{pointer-events:auto}
+.editing .pedals,.editing #steerBtns{pointer-events:auto;cursor:move}
+.editing .pedals *,.editing #steerBtns *{pointer-events:none}
+.howto{margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.howto b{color:var(--paper)}
 #pad{position:absolute;width:184px;height:92px;margin:-46px 0 0 -92px;border-radius:46px;background:rgba(20,33,61,.38);border:2px solid rgba(255,253,246,.35);left:calc(124px + env(safe-area-inset-left,0px));top:calc(100% - 84px - env(safe-area-inset-bottom,0px));pointer-events:none}
 #pad .arr{position:absolute;top:50%;width:0;height:0;margin-top:-10px;border:10px solid transparent;opacity:.7}
 #pad .l{left:16px;border-right:14px solid var(--paper);border-left:0}
@@ -204,6 +214,7 @@ h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(34px,min(
       <button class="brick" id="go" aria-label="Accelerate">GO</button>
     </div>
     <div id="toast" role="status"></div>
+    <div id="editBar" hidden><span>Drag the steering and the pedals to where they work best.</span><button id="editReset">Reset</button><button id="editDone">Done</button></div>
     <div id="sticker" aria-live="polite"></div>
   </div>
 
@@ -2062,7 +2073,7 @@ function renderBook(){
 }
 
 /* ---------- garage ---------- */
-let gTab='vehicles',resetArmed=false;
+let gTab='vehicles',resetArmed=false,showHowTo=false;
 const coinHTML=n=>`<span class="price"><i class="coin"></i>${n}</span>`;
 function renderGarage(){
   const tabs=[['vehicles','Vehicles'],['paint','Paint'],['driver','Driver'],['settings','Settings']];
@@ -2089,7 +2100,9 @@ function renderGarage(){
     const opt=(group,val,label,cur)=>`<button class="opt" data-set="${group}" data-val="${val}" aria-pressed="${cur===val}">${label}</button>`;
     h+='<div class="sec">Graphics</div><div class="row">'+opt('detail','high','High detail',DETAIL)+opt('detail','low','Low detail',DETAIL)+'</div><p class="note">Low detail runs more smoothly on older tablets. Changing it restarts the game; your progress is kept.</p>';
     h+='<div class="sec">Steering</div><div class="row">'+opt('steer','stick','Drag stick',save.steer||'stick')+opt('steer','buttons','Left and right buttons',save.steer||'stick')+'</div><p class="note">Buttons can be easier for small thumbs.</p>';
-    h+='<div class="sec">Home screen</div>'+(installEvt?'<div class="row"><button class="opt" data-set="install">Add Brickton to the home screen</button></div>':'')+'<p class="note">'+(matchMedia('(display-mode: standalone),(display-mode: fullscreen)').matches?'Brickton is running as a home-screen app.':'In Silk, open the browser menu and choose Add to Home Screen, or add a bookmark and send it to the home screen.')+'</p>';
+    h+='<div class="sec">Controls</div><div class="row"><button class="opt" data-set="move">Move the controls</button></div><p class="note">Drag the steering and pedals anywhere on the screen. Handy if part of the screen doesn’t respond well.</p>';
+    const installed=matchMedia('(display-mode: standalone),(display-mode: fullscreen)').matches;
+    h+='<div class="sec">Home screen</div>'+(installed?'<p class="note">Brickton is already running as a home-screen app.</p>':'<div class="row"><button class="opt" data-set="install">Add Brickton to the home screen</button></div>'+(showHowTo?`<ol class="howto"><li>Close the garage, then tap the <b>⋮</b> menu at the top right of Silk (outside the game).</li><li>Choose <b>Add to Home Screen</b>, name it <b>Brickton</b> and tap <b>Add</b>.</li><li>No option there? The tablet is probably on a child profile. A grown-up can add the website from the parent settings (Amazon Kids or Parental Controls), or switch to the adult profile to add the shortcut.</li></ol>`:''));
     h+=`<div class="sec">Speed check</div><p class="note">This device is drawing about <b>${Math.round(fpsAvg)}</b> frames a second at ${DETAIL==='low'?'Low':'High'} detail. Over 25 feels smooth.</p>`;
     h+='<div class="sec">Time of day</div><div class="row">'+opt('time','auto','Day and night',save.time)+opt('time','day','Always day',save.time)+opt('time','night','Always night',save.time)+'</div>';
     h+='<div class="sec">Sound</div><div class="row">'+opt('sound','on','Sound on',save.sound?'on':'off')+opt('sound','off','Sound off',save.sound?'on':'off')+'</div>';
@@ -2115,7 +2128,8 @@ $('garage').addEventListener('click',e=>{
   if(b.dataset.dk){save.driver[b.dataset.dk]=b.dataset.dv;refreshVehicle();sfx.click();persist();renderGarage();return;}
   if(b.dataset.set==='detail'){if(b.dataset.val!==DETAIL){store.set('detail',b.dataset.val);persist();location.reload();}return;}
   if(b.dataset.set==='steer'){save.steer=b.dataset.val;applySteerMode();persist();sfx.click();renderGarage();return;}
-  if(b.dataset.set==='install'){doInstall();return;}
+  if(b.dataset.set==='install'){if(installEvt)doInstall();else{showHowTo=true;renderGarage();}return;}
+  if(b.dataset.set==='move'){startEdit();return;}
   if(b.dataset.set==='time'){save.time=b.dataset.val;persist();sfx.click();renderGarage();return;}
   if(b.dataset.set==='sound'){const want=b.dataset.val==='on';if(want!==sfx.on)sfx.toggle();save.sound=want;persist();renderGarage();return;}
   if(b.dataset.set==='reset'){if(!resetArmed){resetArmed=true;renderGarage();return;}store.clear();location.reload();}
@@ -2147,10 +2161,15 @@ function nextStation(){const s=sfx.nextStation();updateRadioTag();toast(s==='off
 hold($('radioBtn'),nextStation,()=>{});
 {
   const zone=$('steerZone'),pad=$('pad'),knob=$('knob');let id=null,sx=0;
-  zone.addEventListener('pointerdown',e=>{e.preventDefault();sfx.init();if(id!==null)return;id=e.pointerId;try{zone.setPointerCapture(id);}catch(_){}const r=zone.getBoundingClientRect();sx=e.clientX;pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';});
+  zone.addEventListener('pointerdown',e=>{e.preventDefault();sfx.init();if(id!==null)return;id=e.pointerId;try{zone.setPointerCapture(id);}catch(_){}const r=zone.getBoundingClientRect();sx=e.clientX;
+    if(editing){placePad(e.clientX-r.left,e.clientY-r.top);return;}
+    pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';});
   /* small dead zone, full lock after a short drag */
-  zone.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;const dx=e.clientX-sx,m=Math.max(0,Math.abs(dx)-3);const d=Math.sign(dx)*Math.min(1,m/38);input.steer=d;knob.style.transform=`translateX(${d*56}px)`;});
-  const end=e=>{if(e.pointerId!==id)return;id=null;input.steer=0;knob.style.transform='';pad.style.left='';pad.style.top='';};
+  zone.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;if(editing){const r=zone.getBoundingClientRect();placePad(e.clientX-r.left,e.clientY-r.top);return;}const dx=e.clientX-sx,m=Math.max(0,Math.abs(dx)-3);const d=Math.sign(dx)*Math.min(1,m/38);input.steer=d;knob.style.transform=`translateX(${d*56}px)`;});
+  const end=e=>{if(e.pointerId!==id)return;id=null;input.steer=0;knob.style.transform='';padHome();};
+  function placePad(x,y){const r=zone.getBoundingClientRect();x=clamp(x,96,r.width-96);y=clamp(y,50,r.height-50);pad.style.left=x+'px';pad.style.top=y+'px';save.layout=save.layout||{};save.layout.steer={x:x/r.width,y:y/r.height};}
+  function padHome(){const L=save.layout&&save.layout.steer;if(L){const r=zone.getBoundingClientRect();pad.style.left=(L.x*r.width)+'px';pad.style.top=(L.y*r.height)+'px';}else{pad.style.left='';pad.style.top='';}}
+  window._padHome=padHome;
   zone.addEventListener('pointerup',end);zone.addEventListener('pointercancel',end);zone.addEventListener('lostpointercapture',end);
 }
 /* optional big left/right buttons instead of the drag stick */
@@ -2160,6 +2179,25 @@ hold($('radioBtn'),nextStation,()=>{});
   hold($('rightBtn'),()=>{r=1;sync();},()=>{r=0;sync();});
 }
 function applySteerMode(){const b=save.steer==='buttons';$('steerBtns').hidden=!b;$('steerZone').hidden=b;input.steer=0;}
+/* ---------- move the controls: for screens with a worn patch ---------- */
+let editing=false;
+function placeEl(el,key,x,y){const w=innerWidth,h=innerHeight,b=el.getBoundingClientRect();x=clamp(x,4,w-b.width-4);y=clamp(y,60,h-b.height-4);el.style.left=x+'px';el.style.top=y+'px';el.style.right='auto';el.style.bottom='auto';save.layout=save.layout||{};save.layout[key]={x:x/w,y:y/h};}
+function applyLayout(){
+  const L=save.layout||{};
+  [['pedals',document.querySelector('.pedals')],['btns',$('steerBtns')]].forEach(([k,el])=>{if(L[k]){el.style.left=(L[k].x*innerWidth)+'px';el.style.top=(L[k].y*innerHeight)+'px';el.style.right='auto';el.style.bottom='auto';}else{el.style.left=el.style.top=el.style.right=el.style.bottom='';}});
+  if(window._padHome)window._padHome();
+}
+[['pedals',document.querySelector('.pedals')],['btns',$('steerBtns')]].forEach(([k,el])=>{
+  let pid=null,ox=0,oy=0;
+  el.addEventListener('pointerdown',e=>{if(!editing)return;e.preventDefault();e.stopPropagation();pid=e.pointerId;const b=el.getBoundingClientRect();ox=e.clientX-b.left;oy=e.clientY-b.top;try{el.setPointerCapture(pid);}catch(_){}},true);
+  el.addEventListener('pointermove',e=>{if(!editing||e.pointerId!==pid)return;placeEl(el,k,e.clientX-ox,e.clientY-oy);});
+  const up=e=>{if(e.pointerId===pid)pid=null;};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+});
+function startEdit(){closePanels();editing=true;document.body.classList.add('editing');$('editBar').hidden=false;input.throttle=input.brake=input.steer=0;}
+function endEdit(){editing=false;document.body.classList.remove('editing');$('editBar').hidden=true;persist();applyLayout();toast('Controls moved','Change them again in Garage › Settings',1800);}
+$('editDone').addEventListener('click',endEdit);
+$('editReset').addEventListener('click',()=>{delete save.layout;applyLayout();persist();});
+addEventListener('resize',()=>setTimeout(applyLayout,50));
 /* install as an app where the browser offers it */
 let installEvt=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('installBtn').hidden=false;});
@@ -2220,7 +2258,7 @@ function frame(){
   /* slower tablets get several small physics steps per frame so the game never runs in slow motion */
   const raw=clock.getDelta(),total=Math.min(raw,.2),steps=Math.max(1,Math.ceil(total/(1/30)-.01)),dt=total/steps;
   fpsAvg=lerp(fpsAvg,1/Math.max(raw,1e-3),.05);
-  const paused=garageOpen||bookOpen;
+  const paused=garageOpen||bookOpen||editing;
   updateSky(total);
   if(!attract&&!paused){
     for(let k=0;k<steps;k++){frameDt=dt;elapsed+=dt;
@@ -2253,7 +2291,7 @@ function boot(){
   if(!save.owned.vehicles.includes(save.vehicle))save.vehicle='cab';
   spawnVehicle(save.vehicle);
   car.y=groundAt(car.x,car.z);V.group.position.set(car.x,car.y,car.z);V.group.rotation.y=car.h;
-  updateWallet();resize();applySteerMode();
+  updateWallet();resize();applySteerMode();applyLayout();
   buildMs=Math.round(performance.now()-t0);
   $('play').disabled=false;$('play').textContent=save.studs||save.counts.fares?'Keep driving':'Start driving';
   frame();
